@@ -235,6 +235,79 @@ class PulseVPNAutoLogin:
         logger.warning("无法触发VPN连接")
         return False
     
+    def find_login_window(self):
+        """查找登录窗口"""
+        all_windows = gw.getAllWindows()
+        login_candidates = []
+        
+        # 查找可能的登录窗口
+        for window in all_windows:
+            if not window.title or not window.visible:
+                continue
+                
+            title_lower = window.title.lower()
+            # 查找包含登录相关关键词的窗口
+            if any(keyword in title_lower for keyword in ['login', '登录', 'sign', 'auth', 'credential']):
+                login_candidates.append(window)
+                continue
+                
+            # 查找较小的弹窗（登录窗口通常比主窗口小）
+            if window.width < 800 and window.height < 600 and window.width > 200 and window.height > 150:
+                login_candidates.append(window)
+        
+        # 优先选择标题明确包含登录的窗口
+        for window in login_candidates:
+            title_lower = window.title.lower()
+            if any(keyword in title_lower for keyword in ['login', '登录', 'sign in']):
+                return window
+        
+        # 如果没有明确的登录窗口，选择最小的窗口
+        if login_candidates:
+            return min(login_candidates, key=lambda w: w.width * w.height)
+        
+        return None
+    
+    def find_input_field_by_label(self, window, label_text):
+        """通过标签文本查找输入框位置"""
+        try:
+            # 获取窗口截图区域
+            screenshot = pyautogui.screenshot(region=(window.left, window.top, window.width, window.height))
+            
+            # 尝试查找标签文本
+            for text in label_text:
+                try:
+                    label_location = pyautogui.locateOnScreen(text, region=(window.left, window.top, window.width, window.height), confidence=0.7)
+                    if label_location:
+                        # 假设输入框在标签右侧或下方
+                        label_center = pyautogui.center(label_location)
+                        # 尝试右侧
+                        input_x = label_center.x + 100
+                        input_y = label_center.y
+                        if input_x < window.left + window.width:
+                            return (input_x, input_y)
+                        # 尝试下方
+                        input_x = label_center.x
+                        input_y = label_center.y + 30
+                        if input_y < window.top + window.height:
+                            return (input_x, input_y)
+                except:
+                    continue
+        except Exception as e:
+            logger.debug(f"图像识别失败: {e}")
+        
+        return None
+    
+    def find_input_fields_by_position(self, window):
+        """通过位置推测输入框"""
+        # 假设用户名框在窗口上半部分，密码框在下半部分
+        username_x = window.left + window.width // 2
+        username_y = window.top + window.height // 3
+        
+        password_x = window.left + window.width // 2
+        password_y = window.top + window.height * 2 // 3
+        
+        return (username_x, username_y), (password_x, password_y)
+    
     def input_credentials(self, username, password):
         """输入账号密码"""
         logger.info("正在输入账号密码...")
@@ -243,39 +316,99 @@ class PulseVPNAutoLogin:
         while time.time() - start_time < self.settings["wait_timeout"]:
             try:
                 # 查找登录窗口
-                login_windows = gw.getWindowsWithTitle(self.settings["window_titles"]["login"])
-                if login_windows:
-                    login_window = login_windows[0]
-                    login_window.activate()
+                login_window = self.find_login_window()
+                if not login_window:
+                    logger.debug("未找到登录窗口，继续等待...")
                     time.sleep(1)
-                    
-                    # 输入用户名
-                    pyautogui.hotkey('ctrl', 'a')
-                    pyautogui.press('delete')
-                    pyautogui.write(username)
-                    time.sleep(0.5)
-                    
-                    # 按Tab切换到密码框
-                    pyautogui.press('tab')
-                    time.sleep(0.5)
-                    
-                    # 输入密码
-                    pyautogui.hotkey('ctrl', 'a')
-                    pyautogui.press('delete')
-                    pyautogui.write(password)
-                    time.sleep(0.5)
-                    
-                    # 按回车登录
-                    pyautogui.press('enter')
-                    logger.info("账号密码已输入，正在登录...")
-                    return True
-                    
+                    continue
+                
+                logger.info(f"找到登录窗口: {login_window.title}")
+                login_window.activate()
+                time.sleep(1)
+                
+                # 切换到英文输入法
+                pyautogui.hotkey('shift', 'alt')
+                time.sleep(0.5)
+                
+                # 尝试查找UserID输入框
+                userid_pos = self.find_input_field_by_label(login_window, ['UserID', 'User ID', '用户名', 'Username'])
+                password_pos = self.find_input_field_by_label(login_window, ['Password', '密码'])
+                
+                # 如果图像识别失败，使用位置推测
+                if not userid_pos or not password_pos:
+                    logger.info("使用位置推测输入框")
+                    userid_pos, password_pos = self.find_input_fields_by_position(login_window)
+                
+                # 点击UserID框并输入用户名
+                logger.info("点击UserID输入框")
+                pyautogui.click(userid_pos[0], userid_pos[1])
+                time.sleep(0.5)
+                pyautogui.hotkey('ctrl', 'a')
+                pyautogui.press('delete')
+                pyautogui.write(username)
+                time.sleep(0.5)
+                
+                # 点击密码框并输入密码
+                logger.info("点击密码输入框")
+                pyautogui.click(password_pos[0], password_pos[1])
+                time.sleep(0.5)
+                pyautogui.hotkey('ctrl', 'a')
+                pyautogui.press('delete')
+                pyautogui.write(password)
+                time.sleep(0.5)
+                
+                # 按回车登录
+                pyautogui.press('enter')
+                logger.info("账号密码已输入，正在登录...")
+                return True
+                
             except Exception as e:
                 logger.debug(f"输入凭据时出错: {e}")
             
-            time.sleep(1)
+            time.sleep(2)
         
-        logger.error("未找到登录窗口")
+        logger.error("登录超时")
+        return False
+    
+    def restart_clash(self):
+        """重新启动Clash for Windows"""
+        logger.info("正在重新启动Clash for Windows...")
+        
+        # 常见的Clash安装路径
+        clash_paths = [
+            "C:\\Users\\Admin\\Softwares\\Clash\\clash\\Clash for Windows.exe",  # 用户实际路径
+            os.path.expanduser("~\\Softwares\\Clash\\clash\\Clash for Windows.exe"),  # 动态用户路径
+            os.path.expanduser("~\\AppData\\Local\\Clash for Windows\\Clash for Windows.exe"),
+            "C:\\Program Files\\Clash for Windows\\Clash for Windows.exe",
+            "C:\\Program Files (x86)\\Clash for Windows\\Clash for Windows.exe",
+            os.path.expanduser("~\\Desktop\\Clash for Windows.exe"),
+        ]
+        
+        # 尝试从注册表或快捷方式找到Clash路径
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\Applications\Clash for Windows.exe\shell\open\command")
+            clash_cmd, _ = winreg.QueryValueEx(key, "")
+            if clash_cmd:
+                # 提取exe路径（去除参数）
+                clash_path = clash_cmd.split('"')[1] if '"' in clash_cmd else clash_cmd.split()[0]
+                clash_paths.insert(0, clash_path)
+            winreg.CloseKey(key)
+        except:
+            pass
+        
+        # 尝试启动Clash
+        for path in clash_paths:
+            if os.path.exists(path):
+                try:
+                    subprocess.Popen([path], shell=True)
+                    logger.info(f"Clash for Windows已启动: {path}")
+                    return True
+                except Exception as e:
+                    logger.debug(f"启动Clash失败 {path}: {e}")
+                    continue
+        
+        logger.warning("未找到Clash for Windows，请手动启动")
         return False
     
     def run(self):
@@ -329,14 +462,20 @@ def main():
     
     vpn_automation = PulseVPNAutoLogin()
     
-    if vpn_automation.run():
-        print("\n✅ 登录流程已完成！")
-        print("脚本将在5秒后自动退出...")
-        time.sleep(5)
-    else:
-        print("\n❌ 登录流程失败！")
-        print("请查看日志文件获取详细信息")
-        input("按回车键退出...")
+    try:
+        if vpn_automation.run():
+            print("\n✅ 登录流程已完成！")
+            print("脚本将在5秒后自动退出...")
+            time.sleep(5)
+        else:
+            print("\n❌ 登录流程失败！")
+            print("请查看日志文件获取详细信息")
+            input("按回车键退出...")
+    finally:
+        # 退出时重新启动Clash for Windows
+        print("\n正在重新启动Clash for Windows...")
+        vpn_automation.restart_clash()
+        time.sleep(2)
 
 if __name__ == "__main__":
     main()
