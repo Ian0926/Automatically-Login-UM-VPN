@@ -1,0 +1,7 @@
+pyautogui>=0.9.54
+psutil>=5.9.0
+pywin32>=306
+pygetwindow>=0.0.9
+cryptography>=3.4.8
+keyboard>=0.13.5
+pillow>=9.0.0

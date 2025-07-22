@@ -1,0 +1,24 @@
+{
+    "pulse_vpn_path": "C:\\Program Files (x86)\\Common Files\\Pulse Secure\\JamUI\\Pulse.exe",
+    "clash_processes": [
+        "clash.exe",
+        "Clash for Windows.exe"
+    ],
+    "pulse_processes": [
+        "Pulse.exe",
+        "JamUI.exe"
+    ],
+    "wait_timeout": 30,
+    "retry_count": 3,
+    "window_titles": {
+        "main": "Pulse Secure",
+        "login": "登录",
+        "connect": "连接"
+    },
+    "gui_config": {
+        "click_delay": 1.0,
+        "type_delay": 0.1,
+        "confidence": 0.8,
+        "screenshot_folder": "screenshots"
+    }
+}
