@@ -102,7 +102,7 @@ class PulseVPNAutoLogin:
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
         
-        time.sleep(3)
+        time.sleep(1)
         logger.info("进程清理完成")
     
     def disable_proxy(self):
@@ -179,7 +179,7 @@ class PulseVPNAutoLogin:
             try:
                 subprocess.Popen([self.settings["pulse_vpn_path"]])
                 logger.info("Pulse VPN已启动")
-                time.sleep(5)
+                time.sleep(1)
                 return True
             except Exception as e:
                 logger.error(f"启动Pulse VPN失败: {e}")
@@ -237,7 +237,7 @@ class PulseVPNAutoLogin:
             except Exception as e:
                 logger.debug(f"触发连接时出错: {e}")
             
-            time.sleep(2)
+            time.sleep(1)
         
         logger.warning("无法触发VPN连接")
         return False
@@ -359,30 +359,30 @@ class PulseVPNAutoLogin:
         logger.info("正在输入账号密码...")
         
         # 等待登录界面出现
-        time.sleep(3)
+        time.sleep(1)
         
         try:
             # 获取输入框的固定屏幕坐标
             userid_pos, password_pos = self.get_login_input_positions()
             
-            # 切换到英文输入法
-            logger.info("切换到英文输入法")
-            pyautogui.hotkey('ctrl', 'space')  # 中英文输入法切换
-            time.sleep(0.5)
-            pyautogui.hotkey('shift', 'alt')   # 备选切换方法
-            time.sleep(0.5)
-            
-            # 点击UserID框并输入用户名
+            # 点击UserID框
             logger.info(f"点击UserID输入框坐标: ({userid_pos[0]}, {userid_pos[1]})")
             pyautogui.click(userid_pos[0], userid_pos[1])
             time.sleep(0.5)
+            
+            # 切换到英文输入法
+            logger.info("切换到英文输入法")
+            pyautogui.press('shift')  # 输入法切换
+            time.sleep(0.5)
+            
+            # 输入用户名
             pyautogui.hotkey('ctrl', 'a')
             pyautogui.press('delete')
             pyautogui.write(username)
             time.sleep(0.5)
             
             # 再次确保英文输入法
-            pyautogui.hotkey('ctrl', 'space')
+            pyautogui.press('shift')
             time.sleep(0.2)
             
             # 点击密码框并输入密码
@@ -468,13 +468,13 @@ class PulseVPNAutoLogin:
                 return False
             
             # 5. 触发VPN连接
-            time.sleep(5)
+            time.sleep(1)
             if not self.trigger_connection():
                 logger.error("无法触发VPN连接")
                 return False
             
             # 6. 输入账号密码
-            time.sleep(3)
+            time.sleep(1)
             if not self.input_credentials(username, password):
                 logger.error("无法输入账号密码")
                 return False
