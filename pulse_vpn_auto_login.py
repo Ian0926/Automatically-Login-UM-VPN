@@ -181,31 +181,58 @@ class PulseVPNAutoLogin:
             logger.error(f"Pulse VPN路径不存在: {self.settings['pulse_vpn_path']}")
             return False
     
-    def find_and_click_button(self, button_text, timeout=30):
-        """查找并点击按钮"""
-        logger.info(f"正在查找按钮: {button_text}")
+    def trigger_connection(self, timeout=30):
+        """触发VPN连接"""
+        logger.info("正在触发VPN连接...")
         
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
-                # 查找窗口
-                windows = gw.getWindowsWithTitle(self.settings["window_titles"]["main"])
-                if windows:
-                    window = windows[0]
-                    window.activate()
+                # 查找Pulse窗口
+                all_windows = gw.getAllWindows()
+                pulse_windows = []
+                
+                for window in all_windows:
+                    if window.title and ("pulse" in window.title.lower() or 
+                                       "vpn" in window.title.lower() or
+                                       "secure" in window.title.lower()):
+                        pulse_windows.append(window)
+                
+                if pulse_windows:
+                    # 选择第一个可见窗口
+                    target_window = None
+                    for window in pulse_windows:
+                        if window.visible and window.width > 0 and window.height > 0:
+                            target_window = window
+                            break
+                    
+                    if not target_window:
+                        target_window = pulse_windows[0]
+                    
+                    logger.info(f"激活窗口: {target_window.title}")
+                    target_window.activate()
                     time.sleep(1)
                     
-                    # 使用键盘快捷键找到按钮
-                    pyautogui.hotkey('alt', 'c')  # 尝试连接快捷键
-                    time.sleep(2)
+                    # 切换到英文输入法
+                    pyautogui.hotkey('shift', 'alt')  # 中英文切换
+                    time.sleep(0.5)
+                    
+                    # 使用f o c快捷键触发连接
+                    pyautogui.press('f')
+                    time.sleep(0.2)
+                    pyautogui.press('o')
+                    time.sleep(0.2)
+                    pyautogui.press('c')
+                    
+                    logger.info("已发送f o c快捷键，等待登录界面...")
                     return True
                     
             except Exception as e:
-                logger.debug(f"查找按钮时出错: {e}")
+                logger.debug(f"触发连接时出错: {e}")
             
-            time.sleep(1)
+            time.sleep(2)
         
-        logger.warning(f"未找到按钮: {button_text}")
+        logger.warning("无法触发VPN连接")
         return False
     
     def input_credentials(self, username, password):
@@ -270,10 +297,10 @@ class PulseVPNAutoLogin:
                 logger.error("无法启动Pulse VPN")
                 return False
             
-            # 5. 点击连接按钮
+            # 5. 触发VPN连接
             time.sleep(5)
-            if not self.find_and_click_button("连接"):
-                logger.error("无法找到连接按钮")
+            if not self.trigger_connection():
+                logger.error("无法触发VPN连接")
                 return False
             
             # 6. 输入账号密码
