@@ -17,10 +17,10 @@
         "connect": "连接"
     },
     "login_positions": {
-        "userid_x": 0.3,
-        "userid_y": 0.2,
-        "password_x": 0.3,
-        "password_y": 0.22
+        "userid_x": 0.2962,
+        "userid_y": 0.3517,
+        "password_x": 0.2962,
+        "password_y": 0.3947
     },
     "gui_config": {
         "click_delay": 1.0,

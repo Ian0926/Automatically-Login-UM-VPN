@@ -61,10 +61,10 @@ class PulseVPNAutoLogin:
                     "connect": "连接"
                 },
                 "login_positions": {
-                    "userid_x": 0.3,
-                    "userid_y": 0.2,
-                    "password_x": 0.3,
-                    "password_y": 0.22
+                    "userid_x": 0.2962,
+                    "userid_y": 0.3517,
+                    "password_x": 0.2962,
+                    "password_y": 0.3947
                 }
             }
             with open(self.settings_file, 'w', encoding='utf-8') as f:
@@ -367,9 +367,9 @@ class PulseVPNAutoLogin:
             
             # 切换到英文输入法
             logger.info("切换到英文输入法")
-            pyautogui.hotkey('shift', 'alt')  # 中英文切换
+            pyautogui.hotkey('ctrl', 'space')  # 中英文输入法切换
             time.sleep(0.5)
-            pyautogui.hotkey('ctrl', 'space')  # 备选切换方法
+            pyautogui.hotkey('shift', 'alt')   # 备选切换方法
             time.sleep(0.5)
             
             # 点击UserID框并输入用户名
@@ -382,7 +382,7 @@ class PulseVPNAutoLogin:
             time.sleep(0.5)
             
             # 再次确保英文输入法
-            pyautogui.hotkey('shift', 'alt')
+            pyautogui.hotkey('ctrl', 'space')
             time.sleep(0.2)
             
             # 点击密码框并输入密码
