@@ -1,5 +1,6 @@
 {
     "pulse_vpn_path": "C:\\Program Files (x86)\\Common Files\\Pulse Secure\\JamUI\\Pulse.exe",
+    "clash_path": "C:\\Users\\Admin\\Softwares\\Clash\\clash\\Clash for Windows.exe",
     "clash_processes": [
         "clash.exe",
         "Clash for Windows.exe"

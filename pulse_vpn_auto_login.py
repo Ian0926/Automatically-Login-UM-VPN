@@ -50,6 +50,7 @@ class PulseVPNAutoLogin:
         if not os.path.exists(self.settings_file):
             default_settings = {
                 "pulse_vpn_path": "C:\\Program Files (x86)\\Common Files\\Pulse Secure\\JamUI\\Pulse.exe",
+                "clash_path": "C:\\Users\\Admin\\Softwares\\Clash\\clash\\Clash for Windows.exe",
                 "clash_processes": ["clash.exe", "Clash for Windows.exe"],
                 "pulse_processes": ["Pulse.exe", "JamUI.exe"],
                 "wait_timeout": 30,
@@ -374,15 +375,19 @@ class PulseVPNAutoLogin:
         """重新启动Clash for Windows"""
         logger.info("正在重新启动Clash for Windows...")
         
-        # 常见的Clash安装路径
-        clash_paths = [
-            "C:\\Users\\Admin\\Softwares\\Clash\\clash\\Clash for Windows.exe",  # 用户实际路径
+        # 优先使用配置文件中的路径
+        clash_paths = []
+        if "clash_path" in self.settings and self.settings["clash_path"]:
+            clash_paths.append(self.settings["clash_path"])
+        
+        # 添加常见的Clash安装路径作为备选
+        clash_paths.extend([
             os.path.expanduser("~\\Softwares\\Clash\\clash\\Clash for Windows.exe"),  # 动态用户路径
             os.path.expanduser("~\\AppData\\Local\\Clash for Windows\\Clash for Windows.exe"),
             "C:\\Program Files\\Clash for Windows\\Clash for Windows.exe",
             "C:\\Program Files (x86)\\Clash for Windows\\Clash for Windows.exe",
             os.path.expanduser("~\\Desktop\\Clash for Windows.exe"),
-        ]
+        ])
         
         # 尝试从注册表或快捷方式找到Clash路径
         try:
