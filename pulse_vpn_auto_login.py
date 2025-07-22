@@ -59,6 +59,12 @@ class PulseVPNAutoLogin:
                     "main": "Pulse Secure",
                     "login": "登录",
                     "connect": "连接"
+                },
+                "login_positions": {
+                    "userid_x": 0.3,
+                    "userid_y": 0.2,
+                    "password_x": 0.3,
+                    "password_y": 0.22
                 }
             }
             with open(self.settings_file, 'w', encoding='utf-8') as f:
@@ -238,10 +244,24 @@ class PulseVPNAutoLogin:
     
     def find_login_window(self):
         """查找登录窗口"""
+        # 首先尝试获取当前激活窗口
+        try:
+            active_window = gw.getActiveWindow()
+            if active_window and active_window.visible and active_window.title:
+                title_lower = active_window.title.lower()
+                # 检查激活窗口是否为登录相关窗口
+                if (any(keyword in title_lower for keyword in ['login', '登录', 'sign', 'auth', 'credential']) or
+                    (active_window.width < 800 and active_window.height < 600 and 
+                     active_window.width > 200 and active_window.height > 150)):
+                    logger.info(f"使用当前激活窗口作为登录窗口: {active_window.title}")
+                    return active_window
+        except Exception as e:
+            logger.debug(f"获取激活窗口失败: {e}")
+        
+        # 如果激活窗口不合适，查找所有可能的登录窗口
         all_windows = gw.getAllWindows()
         login_candidates = []
         
-        # 查找可能的登录窗口
         for window in all_windows:
             if not window.title or not window.visible:
                 continue
@@ -256,17 +276,18 @@ class PulseVPNAutoLogin:
             if window.width < 800 and window.height < 600 and window.width > 200 and window.height > 150:
                 login_candidates.append(window)
         
+        if not login_candidates:
+            return None
+        
         # 优先选择标题明确包含登录的窗口
         for window in login_candidates:
             title_lower = window.title.lower()
             if any(keyword in title_lower for keyword in ['login', '登录', 'sign in']):
                 return window
         
-        # 如果没有明确的登录窗口，选择最小的窗口
-        if login_candidates:
-            return min(login_candidates, key=lambda w: w.width * w.height)
-        
-        return None
+        # 选择最前端的窗口（模拟最顶层）
+        # 由于pygetwindow没有直接的Z-order信息，我们选择最小的窗口作为近似
+        return min(login_candidates, key=lambda w: w.width * w.height)
     
     def find_input_field_by_label(self, window, label_text):
         """通过标签文本查找输入框位置"""
@@ -309,67 +330,78 @@ class PulseVPNAutoLogin:
         
         return (username_x, username_y), (password_x, password_y)
     
+    def get_login_input_positions(self):
+        """获取登录界面输入框的固定屏幕坐标"""
+        # 获取屏幕尺寸
+        screen_width, screen_height = pyautogui.size()
+        
+        # 从配置文件读取相对位置
+        login_pos = self.settings.get("login_positions", {})
+        userid_rel_x = login_pos.get("userid_x", 0.3)
+        userid_rel_y = login_pos.get("userid_y", 0.2)
+        password_rel_x = login_pos.get("password_x", 0.3)
+        password_rel_y = login_pos.get("password_y", 0.22)
+        
+        # 计算实际像素坐标
+        userid_x = int(screen_width * userid_rel_x)
+        userid_y = int(screen_height * userid_rel_y)
+        password_x = int(screen_width * password_rel_x)
+        password_y = int(screen_height * password_rel_y)
+        
+        logger.info(f"屏幕尺寸: {screen_width}x{screen_height}")
+        logger.info(f"UserID坐标: ({userid_x}, {userid_y}) - 相对位置({userid_rel_x}, {userid_rel_y})")
+        logger.info(f"密码坐标: ({password_x}, {password_y}) - 相对位置({password_rel_x}, {password_rel_y})")
+        
+        return (userid_x, userid_y), (password_x, password_y)
+    
     def input_credentials(self, username, password):
         """输入账号密码"""
         logger.info("正在输入账号密码...")
         
-        start_time = time.time()
-        while time.time() - start_time < self.settings["wait_timeout"]:
-            try:
-                # 查找登录窗口
-                login_window = self.find_login_window()
-                if not login_window:
-                    logger.debug("未找到登录窗口，继续等待...")
-                    time.sleep(1)
-                    continue
-                
-                logger.info(f"找到登录窗口: {login_window.title}")
-                login_window.activate()
-                time.sleep(1)
-                
-                # 切换到英文输入法
-                pyautogui.hotkey('shift', 'alt')
-                time.sleep(0.5)
-                
-                # 尝试查找UserID输入框
-                userid_pos = self.find_input_field_by_label(login_window, ['UserID', 'User ID', '用户名', 'Username'])
-                password_pos = self.find_input_field_by_label(login_window, ['Password', '密码'])
-                
-                # 如果图像识别失败，使用位置推测
-                if not userid_pos or not password_pos:
-                    logger.info("使用位置推测输入框")
-                    userid_pos, password_pos = self.find_input_fields_by_position(login_window)
-                
-                # 点击UserID框并输入用户名
-                logger.info("点击UserID输入框")
-                pyautogui.click(userid_pos[0], userid_pos[1])
-                time.sleep(0.5)
-                pyautogui.hotkey('ctrl', 'a')
-                pyautogui.press('delete')
-                pyautogui.write(username)
-                time.sleep(0.5)
-                
-                # 点击密码框并输入密码
-                logger.info("点击密码输入框")
-                pyautogui.click(password_pos[0], password_pos[1])
-                time.sleep(0.5)
-                pyautogui.hotkey('ctrl', 'a')
-                pyautogui.press('delete')
-                pyautogui.write(password)
-                time.sleep(0.5)
-                
-                # 按回车登录
-                pyautogui.press('enter')
-                logger.info("账号密码已输入，正在登录...")
-                return True
-                
-            except Exception as e:
-                logger.debug(f"输入凭据时出错: {e}")
-            
-            time.sleep(2)
+        # 等待登录界面出现
+        time.sleep(3)
         
-        logger.error("登录超时")
-        return False
+        try:
+            # 获取输入框的固定屏幕坐标
+            userid_pos, password_pos = self.get_login_input_positions()
+            
+            # 切换到英文输入法
+            logger.info("切换到英文输入法")
+            pyautogui.hotkey('shift', 'alt')  # 中英文切换
+            time.sleep(0.5)
+            pyautogui.hotkey('ctrl', 'space')  # 备选切换方法
+            time.sleep(0.5)
+            
+            # 点击UserID框并输入用户名
+            logger.info(f"点击UserID输入框坐标: ({userid_pos[0]}, {userid_pos[1]})")
+            pyautogui.click(userid_pos[0], userid_pos[1])
+            time.sleep(0.5)
+            pyautogui.hotkey('ctrl', 'a')
+            pyautogui.press('delete')
+            pyautogui.write(username)
+            time.sleep(0.5)
+            
+            # 再次确保英文输入法
+            pyautogui.hotkey('shift', 'alt')
+            time.sleep(0.2)
+            
+            # 点击密码框并输入密码
+            logger.info(f"点击密码输入框坐标: ({password_pos[0]}, {password_pos[1]})")
+            pyautogui.click(password_pos[0], password_pos[1])
+            time.sleep(0.5)
+            pyautogui.hotkey('ctrl', 'a')
+            pyautogui.press('delete')
+            pyautogui.write(password)
+            time.sleep(0.5)
+            
+            # 按回车登录
+            pyautogui.press('enter')
+            logger.info("账号密码已输入，正在登录...")
+            return True
+            
+        except Exception as e:
+            logger.error(f"输入凭据时出错: {e}")
+            return False
     
     def restart_clash(self):
         """重新启动Clash for Windows"""
